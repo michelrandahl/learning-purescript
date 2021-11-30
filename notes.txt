@@ -1,0 +1,167 @@
+# Learning resources
+- https://jordanmartinez.github.io/purescript-jordans-reference-site/Preface.html
+- https://leanpub.com/fp-made-easier
+- https://book.purescript.org/
+- https://medium.com/@KevinBGreene/functional-programming-for-the-web-getting-started-with-purescript-7387f8888318
+
+# create new project
+use `spago`
+for example `spago init` for creating a new project
+
+
+# Pursuit (purescript hoogle)
+Pursuit is a neat website that permits purescript users to search for and explore types and functions
+
+
+
+# forall in type signatures
+purescript uses 'forall' in its type signatures, forexample for functions with polymorphic type parameters
+```
+hush :: forall a b. Either a b -> Maybe b
+hush (Left _)  = Nothing
+hush (Right x) = Just x
+```
+
+We can use forall to 'scope' type variables.. Forexample:
+```
+concat :: String -> String -> String
+concat = append
+
+example ::  forall a b. a -> b -> (forall c. c -> String) -> String
+example a b myFun = concat (myFun a) (myFun b)
+
+testExample :: String
+testExample = example true 5 (const "Foo")
+```
+The above example would not compile with the type signature `example ::  forall a b c. a -> b -> (c -> String) -> String`
+
+TODO: explain why it is needed
+
+# 'Pipeline' operator
+The pipeline operator in purescript is called `(#)` or `applyFlipped` and has signature
+```
+applyFlipped :: forall a b. a -> (a -> b) -> b
+```
+
+The pipeline operator resides in `Data.Function`
+```
+import Data.Fun ((#))
+```
+
+
+
+# Row types
+Inline partial record types.
+```
+getZipcode :: forall x. { address :: MyAddress | x } -> String
+getZipcode = _.address.zipcode
+```
+
+# Operator Sections (lambda wilcard syntax)
+Lambda functions can be written with wildcards
+```
+filter (_ < 10) [1,2,3,4,10,20,30]
+```
+
+Lambda that takes two args and creates a record
+```
+{ name: _, age: _}
+-- equal to
+\name age -> person {name = name, age = age}
+```
+
+Function that updates a phone number on any row type that has the field 'phone'
+```
+updatePhone :: forall x. String -> { phone :: String | x} -> { phone :: String | x}
+updatePhone newPhone = _ { phone = newPhone }
+```
+
+
+
+# What is the difference between 'type alias', 'data type' and 'newtype'?
+'Type alias' example:
+```
+type MyAddress =
+  { street :: String
+  , zipcode :: String }
+
+type MyPerson =
+  { name :: String
+  , address :: MyAddress }
+
+type MyCompany =
+  { ceo :: MyPerson
+  , address :: MyAddress }
+
+-- we can use the rowtype syntax to make a function that is generic wrt types that has address
+getZipcode :: forall x. { address :: MyAddress | x } -> String
+getZipcode = _.address.zipcode
+```
+'Data type' example:
+```
+data Address = Address
+  { street :: String
+  , city :: String }
+```
+
+## Type alias
+- We cannot create sumtypes with these
+
+## Data type
+- supports sum-types, multiple constructors etc
+
+## Newtype
+Compiler can optimize newtypes when they only have one constructor that only takes one argument.
+
+We can leverage 'Newtype' Type Class to write generic functions utilizing the 'wrap' and 'unwrap' functions that the typeclass provides.
+```
+import Data.NewType (class Newtype, unwrap)
+
+newtype FirstName = FirstName String
+derive instance :: Newtype FirstName _
+
+newtype LastName = LastName String
+derive instance :: Newtype LastName _
+
+fullName :: FirstName -> LastName -> String
+fullName (FirstName first) (LastName last) = first <> " " <> last
+
+-- generic version of the function using unwrap
+fullName' :: FirstName -> LastName -> String
+fullName' first last = unwrap first <> " " <> unwrap last
+
+glueNames :: forall a b. Newtype a String => Newtype b String => String -> a -> b -> String
+glueNames between a b = unwrap a <> between <> unwrap b
+```
+
+
+
+# Instance chaining
+If we wish to create instances of a typeclass where one of the desired instances
+is for 'every other type', then we can utilize instance chaining to specify the
+priority of which instance to unify with first.
+```
+class IsRecord a where
+  isRecord :: a -> Boolean
+
+instance IsRecord (Record a) where
+  isRecord _ = true
+else instance IsRecord a where
+  isRecord _ = false
+```
+
+
+
+# Function dependency
+TODO
+
+the hack...
+```
+import Type.Proxy (Proxy(..))
+```
+
+the functional dependency...
+```
+class Decapitate collection element | collection -> element where
+  decapitate :: collection -> Maybe {head :: element, tail :: collection}
+```
